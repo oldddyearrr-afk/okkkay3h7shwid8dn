@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>M3U Generator Pro</title>
+
+<style>
+body{
+  margin:0;
+  background:#0f172a;
+  color:#e5e7eb;
+  font-family:system-ui,Tahoma;
+}
+.container{
+  max-width:720px;
+  margin:auto;
+  padding:16px;
+}
+h1{text-align:center}
+.card{
+  background:#020617;
+  padding:16px;
+  border-radius:12px;
+  margin-bottom:14px;
+}
+label{font-size:14px;margin-top:8px;display:block}
+input,textarea{
+  width:100%;
+  padding:10px;
+  margin-top:6px;
+  border:none;
+  border-radius:8px;
+  background:#020617;
+  color:#fff;
+}
+textarea{min-height:220px}
+.row{display:flex;gap:8px}
+.row div{flex:1}
+button{
+  width:100%;
+  padding:12px;
+  margin-top:10px;
+  border:none;
+  border-radius:10px;
+  font-size:15px;
+  cursor:pointer;
+}
+.primary{background:#2563eb;color:#fff}
+.ok{background:#16a34a;color:#fff}
+.danger{background:#dc2626;color:#fff}
+.stats{display:flex;justify-content:space-between;font-size:13px;margin-top:8px}
+</style>
+</head>
+
+<body>
+<div class="container">
+<h1>🔧 M3U Generator Pro</h1>
+
+<div class="card">
+<label>Stream URL</label>
+<input id="url" value="https://py.dencreak.com/bn_u_{num}_{quality}.m3u8">
+
+<label>Channel Name</label>
+<input id="name" value="BeIN Sports {num}">
+
+<div class="row">
+<div><label>From</label><input id="from" type="number" value="1"></div>
+<div><label>To</label><input id="to" type="number" value="5"></div>
+</div>
+
+<label>Quality (comma separated)</label>
+<input id="quality" value="1080,720">
+
+<label>Language</label>
+<input id="lang" value="ar">
+
+<label>Group</label>
+<input id="group" value="Sports">
+
+<label>Logo URL</label>
+<input id="logo" value="https://iili.io/FSF1DcG.md.png">
+
+<button class="primary" onclick="start(true)">➕ فحص وإضافة</button>
+<button class="ok" onclick="start(false)">⚡ إضافة بدون فحص</button>
+<button class="danger" onclick="clearAll()">🗑️ مسح الكل</button>
+
+<div class="stats">
+<span>✔ شغال: <b id="okCount">0</b></span>
+<span>🔍 مفحوص: <b id="totalCount">0</b></span>
+</div>
+</div>
+
+<div class="card">
+<label>Import M3U</label>
+<input type="file" accept=".m3u" onchange="importM3U(this)">
+</div>
+
+<div class="card">
+<label>M3U Result</label>
+<textarea id="result">#EXTM3U</textarea>
+<button class="ok" onclick="download()">⬇️ تحميل</button>
+</div>
+
+</div>
+
+<script>
+const PROXY="/proxy?url=";
+
+let okCounter=0;
+loadSaved();
+
+async function checkStream(url){
+  try{
+    const r=await fetch(PROXY+encodeURIComponent(url));
+    return r.status===200;
+  }catch{return false}
+}
+
+async function start(check){
+  const baseUrl=url.value;
+  const baseName=name.value;
+  const groupVal=group.value;
+  const logoVal=logo.value;
+  const fromN=+from.value,toN=+to.value;
+  const qualities=quality.value.split(",");
+  const langVal=lang.value;
+
+  for(let i=fromN;i<=toN;i++){
+    for(const q of qualities){
+      let u=baseUrl.replace("{num}",i)
+                  .replace("{quality}",q)
+                  .replace("{lang}",langVal);
+      if(result.value.includes(u)) continue;
+
+      totalCount.textContent++;
+      let ok=true;
+      if(check) ok=await checkStream(u);
+
+      if(ok){
+        okCounter++; okCount.textContent=okCounter;
+        let n=baseName.replace("{num}",i);
+        result.value+=`#EXTINF:-1 tvg-logo="${logoVal}" group-title="${groupVal}",${n}\n${u}\n`;
+      }
+    }
+  }
+  save();
+}
+
+function clearAll(){
+ if(confirm("مسح الكل؟")){
+  result.value="#EXTM3U";
+  okCounter=0;
+  okCount.textContent=0;
+  totalCount.textContent=0;
+  save();
+ }
+}
+
+function download(){
+ const b=new Blob([result.value],{type:"audio/x-mpegurl"});
+ const a=document.createElement("a");
+ a.href=URL.createObjectURL(b);
+ a.download="channels.m3u";
+ a.click();
+}
+
+function importM3U(input){
+ const r=new FileReader();
+ r.onload=()=>{result.value+=`\n${r.result}`;save()};
+ r.readAsText(input.files[0]);
+}
+
+function save(){
+ localStorage.setItem("m3u",result.value);
+}
+
+function loadSaved(){
+ const s=localStorage.getItem("m3u");
+ if(s) result.value=s;
+}
+
+const okCount=document.getElementById("okCount");
+const totalCount=document.getElementById("totalCount");
+</script>
+</body>
+</html>
